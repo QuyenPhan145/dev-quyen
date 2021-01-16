@@ -1,0 +1,127 @@
+# YAML for launching the orderer
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: peer2-thuduchospital
+  labels:
+    app: peer2-thuduchospital
+spec:
+  serviceName: peer2-thuduchospital
+  replicas: 1
+  selector:
+    matchLabels:
+      app: peer2-thuduchospital
+  template:
+    metadata:
+      labels:
+        app: peer2-thuduchospital
+    spec:
+      containers:
+      - name: peer2-thuduchospital
+        # Image used
+        image: nhutori4/peer2-thuduchospital:dev
+        # Uncomment the following during development/testing of the image
+        imagePullPolicy: Always
+        env:
+          - name: FABRIC_LOGGING_SPEC
+            value: INFO
+          - name: ORDERER_ADDRESS
+            value: orderer1-ordererorg:30750
+          - name: ORG_CONTEXT
+            value: thuduchospital
+          - name: CORE_PEER_ADDRESS
+          # value: peer2-thuduchospital-clusterip:30751
+            value: peer2-thuduchospital:31751
+          - name: FABRIC_LOGGING_SPEC
+            value: debug
+          - name: CORE_PEER_TLS_ENABLED
+            value: "true"
+          - name: CORE_PEER_GOSSIP_USELEADERELECTION
+            value: "false"
+          - name: CORE_PEER_GOSSIP_ORGLEADER
+            value: "true"
+          - name: CORE_PEER_GOSSIP_EXTERNALENDPOINT
+            value: peer2-thuduchospital:31751
+          - name: CORE_PEER_GOSSIP_SKIPHANDSHAKE
+            value: "true"
+          - name: CORE_PEER_GOSSIP_BOOTSTRAP
+            value: peer1-thuduchospital:30751
+          # Replacement for set-context in alpine
+          # - name: MSP_ID
+          #   value: AcmeMSP
+          # - name: ORG_NAME
+          #   value: AcmeMSP
+          # - name: CORE_PEER_MSPCONFIGPATH
+          #   value:  /var/hyperledger/config/users/Admin@acme.com/msp
+        volumeMounts:
+        - name: peer2-thuduchospital-ledger
+          mountPath: /var/ledger
+        - name: thuduchospital
+          mountPath: /mnt/disks/org/ThuDucOrg/peer1/fabric-ca-client/
+        - name: dockersock
+          mountPath: /var/run/docker.sock
+      volumes:
+      - name: thuduchospital
+        hostPath:
+          path: /mnt/disks/org/ThuDucOrg/peer1/fabric-ca-client/
+      - name: dockersock
+        hostPath:
+          path: /var/run/docker.sock
+  volumeClaimTemplates:
+  - metadata: 
+      name: peer2-thuduchospital-ledger
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: storageclass-thuduchospital
+      resources:
+        requests:
+          storage: 1Gi
+
+---
+# Expose the port 7051 as ClusterIP
+apiVersion: v1
+kind: Service
+metadata:
+  name: peer2-thuduchospital
+
+spec:
+  # This defines which pods are going to be represented by this Service
+  # The service becomes a network endpoint for either other services
+  # or maybe external users to connect to (eg browser)
+  selector:
+    app: peer2-thuduchospital
+
+  ports:
+    - name: peer2-thuduchospital
+      port: 31751
+    - name: peer2-thuduchospital-cc-clusterip
+      port: 31752
+
+  type: ClusterIP
+
+---
+# Expose the port 30751 as node port -  NEEDED if you
+# are interested in connecting to the Pods from the Host
+# machine - keep in mind you would need the IP for the node
+# port service
+apiVersion: v1
+kind: Service
+metadata:
+  name: peer2-thuduchospital-nodeport
+
+spec:
+  # This defines which pods are going to be represented by this Service
+  # The service becomes a network endpoint for either other services
+  # or maybe external users to connect to (eg browser)
+  selector:
+    app: peer2-thuduchospital
+
+  ports:
+    - name: peer2-thuduchospital-nodeport-751
+      port: 31751
+      nodePort: 31751
+    - name: peer2-thuduchospital-cc-nodeport-752
+      port: 31752
+      nodePort: 31752
+
+  type: NodePort

@@ -1,0 +1,95 @@
+#Docker file for setting up the acme peer
+# FROM hyperledger/fabric-peer:1.4.2
+FROM golang:alpine3.12 as builder
+
+FROM hyperledger/fabric-peer:2.0
+
+LABEL  maintainer="Thach Canh Nhut"
+
+#1. Create a folder
+#RUN rm -r /etc/hyperledger/fabric
+
+ENV FABRIC_LOGGING_SPEC=INFO
+
+ENV ORG_CONTEXT="ThuDucHospital"
+ENV ORG_NAME="ThuDucHospital"
+#2. Copy the crypto for peer crypto
+COPY ./config-org/ThuDucHospital/peers/peer1 /var/hyperledger/ThuDucHospital
+
+RUN chmod 755 /var/hyperledger/ThuDucHospital/msp/config.yaml
+
+ENV FABRIC_CFG_PATH=/var/hyperledger/ThuDucHospital
+#3. Copy the crypto for admin crypto
+COPY ./config-org/ThuDucHospital/users /var/hyperledger/ThuDucHospital/users
+
+#4. Copy the anchor peer update tx
+#COPY ./config/acme-peer-update.tx /var/hyperledger/config/acme-peer-update.tx
+
+ENV CORE_PEER_MSPCONFIGPATH=/var/hyperledger/ThuDucHospital/msp
+
+ENV FABRIC_CFG_PATH=/var/hyperledger/ThuDucHospital
+
+ENV CORE_PEER_ADDRESS="10.102.10.229:30741"
+
+#ENV CORE_PEER_CHAINCODEADDRESS="peer1-thuduchospital:30742"
+
+ENV CORE_VM_DOCKER_ATTACHSTDOUT=true
+
+ENV CORE_PEER_LOCALMSPID="ThuDucHospitalMSP"
+
+ENV CORE_PEER_GOSSIP_USELEADERELECTION=true
+
+ENV CORE_PEER_GOSSIP_ORGLEADER=false
+
+#ENV CORE_PEER_GOSSIP_BOOTSTRAP="peer1-thuduchospital:30741"
+
+ENV CORE_PEER_ENDORSER_ENABLED=true
+
+ENV CORE_PEER_TLS_ENABLED=true
+
+ENV CORE_PEER_GOSSIP_EXTERNALENDPOINT="peer1-thuduchospital:30741"
+
+ENV CORE_PEER_GOSSIP_ENDPOINT="peer1-thuduchospital:30741"
+
+#5. Copy the channel create tx file
+COPY hospitalchannel.tx  /var/hyperledger/ThuDucHospital/hospitalchannel.tx
+
+#6. Copy the core YAML
+COPY ./config-org/ThuDucHospital/peers/peer1/core.yaml /var/hyperledger/ThuDucHospital
+
+#7. Copy the test chaincode
+#COPY ./nodechaincode  /var/hyperledger/nodechaincode
+
+#8. Install the jq package - used in scripts
+RUN apk update \
+&& apk add jq \
+&& rm -rf /var/cache/apk/*
+
+#8. COPY Golang
+RUN mkdir /usr/local/go
+RUN mkdir /go
+
+COPY --from=builder /usr/local/go /usr/local/go
+COPY --from=builder /go /go
+ENV PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV GOPATH=/go
+
+#9. Launch the peer
+CMD peer node start
+
+#9. Set the working dir
+# RUN  echo "cd /var/hyperledger/bins" >> $HOME/.profile
+# RUN  echo "cd /var/hyperledger/bins" >> $HOME/.bashrc
+
+#10. Set the context for Admin user
+#RUN echo ". /var/hyperledger/bins/set-context.sh" >> $HOME/.bashrc
+
+#12. Create the package folder
+#RUN mkdir -p /var/hyperledger/packages
+
+#13. Copy the gocc package tar file to the image
+#COPY ./packages/gocc.1.0-1.0.tar.gz /var/hyperledger/packages/gocc.1.0-1.0.tar.gz
+
+# #14. Launch the peer
+# CMD peer node start
+
